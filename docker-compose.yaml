@@ -53,7 +53,7 @@ services:
     ports:
       - "389:389"
       - "636:636"
-  crm_db: 
+  crm_db:
     image: postgres:14
     environment:
       POSTGRES_DB: crm_db

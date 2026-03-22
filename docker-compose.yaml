@@ -40,3 +40,60 @@ services:
       REACT_APP_KEYCLOAK_URL: http://localhost:8080
       REACT_APP_KEYCLOAK_REALM: reports-realm
       REACT_APP_KEYCLOAK_CLIENT_ID: reports-frontend
+
+  openldap:
+    image: symas/openldap:latest
+    container_name: openldap-bionicpro
+    ports:
+      - "1389:1389"     # ← стандартный порт (рекомендую)
+      - "1636:1636"     # LDAPS
+    environment:
+#      LDAP_ROOT: "dc=bionicpro,dc=local"
+#      LDAP_DOMAIN: "bionicpro.local"
+      LDAP_ROOT: "dc=example,dc=com"                # ← измени на это!
+      LDAP_DOMAIN: "example.com"                    # ← или любое, но лучше соответствовать
+      LDAP_ORGANISATION: "BionicPRO International"
+      LDAP_ADMIN_PASSWORD: admin            # ← смени на сильный в проде!
+      LDAP_ALLOW_ANON_BINDING: "no"         # ← запрет анонимного bind
+      LDAP_CUSTOM_LDIF_DIR: "/ldifs"        # ← ключевой параметр!
+      LDAP_SKIP_DEFAULT_TREE: "yes"         # ← пропустить дефолтное дерево (user01 и т.п.)
+    volumes:
+      - ldap-data:/var/lib/ldap
+      - ldap-config:/etc/ldap/slapd.d
+      - ./ldap/config.ldif:/ldifs/50-bootstrap.ldif:ro   # ← правильный путь!
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+
+  bionicpro-auth:
+    build:
+      context: ./bionicpro-auth
+      dockerfile: Dockerfile
+    container_name: backend
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+      - KEYCLOAK_URL=http://keycloak:8080
+      # Добавь свои переменные, если нужно
+      # - SPRING_PROFILES_ACTIVE=dev
+      # - SERVER_PORT=8081
+    depends_on:
+      - redis
+      - keycloak
+    restart: unless-stopped
+
+volumes:
+  postgres-keycloak-data:
+  redis-data:
+  ldap-data:
+  ldap-config:

@@ -1,3 +1,10 @@
+dn: dc=example,dc=com
+objectClass: top
+objectClass: dcObject
+objectClass: organization
+dc: example
+o: Example Organization
+
 # Организационные подразделения (OU)
 dn: ou=People,dc=example,dc=com
 objectClass: top
@@ -28,7 +35,7 @@ uid: jane.smith
 mail: jane@example.com
 userPassword: password
 
-dn: uid=alex,ou=People,dc=example,dc=com
+dn: uid=alex.johnson,ou=People,dc=example,dc=com
 objectClass: inetOrgPerson
 cn: Alex
 sn: Johnson

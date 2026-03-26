@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Отчёт пользователя</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        h1 { text-align: center; color: #2c3e50; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #34495e;
+            padding: 12px 15px;
+            text-align: left;
+        }
+        th {
+            background-color: #3498db;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        .label { font-weight: bold; width: 45%; }
+    </style>
+</head>
+<body>
+    <h1>Отчёт по использованию протеза</h1>
+    <p><strong>Email:</strong> {{ data.email }}</p>
+    <p><strong>Дата обновления:</strong> {{ data.updated_at }}</p>
+
+    <table>
+        <tr><th>Параметр</th><th>Значение</th></tr>
+        <tr><td class="label">Имя</td><td>{{ data.name }}</td></tr>
+        <tr><td class="label">Возраст</td><td>{{ data.age }}</td></tr>
+        <tr><td class="label">Пол</td><td>{{ data.gender }}</td></tr>
+        <tr><td class="label">Страна</td><td>{{ data.country }}</td></tr>
+        <tr><td class="label">Всего сигналов</td><td>{{ data.total_signals }}</td></tr>
+        <tr><td class="label">Первый сигнал</td><td>{{ data.first_signal }}</td></tr>
+        <tr><td class="label">Последний сигнал</td><td>{{ data.last_signal }}</td></tr>
+        <tr><td class="label">Дней с данными</td><td>{{ data.days_with_data }}</td></tr>
+        <tr><td class="label">Средняя амплитуда</td><td>{{ data.avg_amplitude }}</td></tr>
+        <tr><td class="label">Средняя частота</td><td>{{ data.avg_frequency }}</td></tr>
+        <tr><td class="label">Средняя длительность</td><td>{{ data.avg_duration }}</td></tr>
+        <tr><td class="label">Самый используемый протез</td><td>{{ data.most_used_prosthesis }}</td></tr>
+        <tr><td class="label">Самая используемая мышца</td><td>{{ data.most_used_muscle }}</td></tr>
+    </table>
+</body>
+</html>

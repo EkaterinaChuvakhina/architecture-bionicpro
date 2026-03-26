@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+clickhouse-connect
+pydantic
+python-dotenv
+python-multipart
+pandas
+weasyprint
+jinja2

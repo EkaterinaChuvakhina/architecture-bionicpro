@@ -1,5 +1,28 @@
 version: '3.8'
 
+x-airflow-common: &airflow-common
+  build:
+    context: ./airflow
+    dockerfile: Dockerfile
+  environment: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres-airflow/airflow
+    AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres-airflow/airflow
+    AIRFLOW__CORE__FERNET_KEY: ''
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'false'
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
+    AIRFLOW__WEBSERVER__SECRET_KEY: 'bionicpro_secret_key_2026'
+    _PIP_ADDITIONAL_REQUIREMENTS: ''
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/dags/sql:/opt/airflow/dags/sql
+    - ./airflow/requirements.txt:/opt/airflow/requirements.txt
+    - ./logs:/opt/airflow/logs
+  user: "${AIRFLOW_UID:-50000}:0"
+  networks:
+    - airflow_network
+
 services:
   keycloak_db:
     image: postgres:14
@@ -11,24 +34,8 @@ services:
       - ./postgres-keycloak-data:/var/lib/postgresql/data
     ports:
       - "5433:5432"
-  keycloak:
-    image: quay.io/keycloak/keycloak:21.1
-    environment:
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
-      KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://keycloak_db:5432/keycloak_db
-      KC_DB_USERNAME: keycloak_user
-      KC_DB_PASSWORD: keycloak_password
-    command: 
-      - start-dev
-      - --import-realm
-    volumes:
-      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
-    ports:
-      - "8080:8080"
-    depends_on:
-      - keycloak_db
+    networks:
+      - airflow_network
   frontend:
     build:
       context: ./frontend
@@ -40,54 +47,72 @@ services:
       REACT_APP_KEYCLOAK_URL: http://localhost:8080
       REACT_APP_KEYCLOAK_REALM: reports-realm
       REACT_APP_KEYCLOAK_CLIENT_ID: reports-frontend
+    networks:
+      - airflow_network
+  keycloak:
+    image: quay.io/keycloak/keycloak:21.1
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak_db:5432/keycloak_db
+      KC_DB_USERNAME: keycloak_user
+      KC_DB_PASSWORD: keycloak_password
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY: "passthrough"
+    command:
+      - start-dev
+      - --import-realm
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
+    ports:
+      - "8080:8080"
+    depends_on:
+      - keycloak_db
+    networks:
+      - airflow_network
+
+  bionicpro-auth:
+    build:
+      context: ./bionicpro-auth
+      dockerfile: Dockerfile
+    container_name: bionicpro-auth
+    ports:
+      - "8082:8082"
+    environment:
+      - KEYCLOAK_URL=http://keycloak:8080
+      - REPORTS_API_URL=http://backend:8000
+      - SPRING_PROFILES_ACTIVE=dev
+    depends_on:
+      - keycloak
+    networks:
+      - airflow_network
+    restart: unless-stopped
 
   openldap:
     image: symas/openldap:latest
     container_name: openldap-bionicpro
     ports:
-      - "1389:1389"     # ← стандартный порт (рекомендую)
-      - "1636:1636"     # LDAPS
+      - "1389:1389"
+      - "1636:1636"
     environment:
-#      LDAP_ROOT: "dc=bionicpro,dc=local"
-#      LDAP_DOMAIN: "bionicpro.local"
-      LDAP_ROOT: "dc=example,dc=com"                # ← измени на это!
-      LDAP_DOMAIN: "example.com"                    # ← или любое, но лучше соответствовать
+      LDAP_ROOT: "dc=example,dc=com"
+      LDAP_DOMAIN: "example.com"
       LDAP_ORGANISATION: "BionicPRO International"
-      LDAP_ADMIN_PASSWORD: admin            # ← смени на сильный в проде!
-      LDAP_ALLOW_ANON_BINDING: "no"         # ← запрет анонимного bind
-      LDAP_CUSTOM_LDIF_DIR: "/ldifs"        # ← ключевой параметр!
-      LDAP_SKIP_DEFAULT_TREE: "yes"         # ← пропустить дефолтное дерево (user01 и т.п.)
+      LDAP_ADMIN_PASSWORD: admin
+      LDAP_ALLOW_ANON_BINDING: "no"
+      LDAP_CUSTOM_LDIF_DIR: "/ldifs"
+      LDAP_SKIP_DEFAULT_TREE: "yes"
     volumes:
       - ldap-data:/var/lib/ldap
       - ldap-config:/etc/ldap/slapd.d
-      - ./ldap/config.ldif:/ldifs/50-bootstrap.ldif:ro   # ← правильный путь!
+      - ./ldap/config.ldif:/ldifs/50-bootstrap.ldif:ro
     restart: unless-stopped
-  redis:
-    image: redis:7-alpine
-    container_name: redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis-data:/data
-    restart: unless-stopped
-  bionicpro-auth:
-    build:
-      context: ./bionicpro-auth
-      dockerfile: Dockerfile
-    container_name: backend
-    ports:
-      - "8081:8081"
-    environment:
-      - SPRING_REDIS_HOST=redis
-      - SPRING_REDIS_PORT=6379
-      - KEYCLOAK_URL=http://keycloak:8080
-      # Добавь свои переменные, если нужно
-      # - SPRING_PROFILES_ACTIVE=dev
-      # - SERVER_PORT=8081
-    depends_on:
-      - redis
-      - keycloak
-    restart: unless-stopped
+    networks:
+      - airflow_network
+
   crm_db:
     image: postgres:14
     environment:
@@ -99,6 +124,9 @@ services:
       - ./postgres-crm-data:/var/lib/postgresql/data
     ports:
       - "5444:5432"
+    networks:
+      - airflow_network
+
   olap_db:
     image: clickhouse/clickhouse-server:latest
     ports:
@@ -111,20 +139,77 @@ services:
       - ./olap-db/users.xml:/etc/clickhouse-server/users.d/users.xml
     healthcheck:
       test: ["CMD-SHELL", "clickhouse-client --query 'SELECT 1'"]
-      interval: 1s
+      interval: 5s
       timeout: 3s
-      retries: 30
-  minio:
-    image: minio/minio
+      retries: 10
+    networks:
+      - airflow_network
+
+  backend:
+    build:
+      context: ./report-backend
+      dockerfile: Dockerfile
+    container_name: bionicpro-backend
     ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - minio_storage:/data
+      - "8000:8000"
     environment:
-      MINIO_ROOT_USER: minio_user
-      MINIO_ROOT_PASSWORD: minio_password
-    command: server --console-address ":9001" /data
+      CLICKHOUSE_HOST: olap_db
+      CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: ""
+      CLICKHOUSE_DATABASE: bionicpro
+    depends_on:
+      olap_db:
+        condition: service_healthy
+    networks:
+      - airflow_network
+    restart: unless-stopped
+
+  postgres-airflow:
+    image: postgres:16-alpine
+    container_name: airflow_postgres
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5435:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+    networks:
+      - airflow_network
+
+  airflow-init:
+    <<: *airflow-common
+    command: bash -c "airflow db init && airflow users create --username admin --firstname Admin --lastname Admin --role Admin --email admin@sample.ru --password admin"
+    restart: "no"
+    depends_on:
+      postgres-airflow:
+        condition: service_healthy
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8090:8080"
+    restart: unless-stopped
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    restart: unless-stopped
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
 
 volumes:
   postgres-keycloak-data:
@@ -132,3 +217,9 @@ volumes:
   ldap-data:
   ldap-config:
   minio_storage:
+  airflow_postgres_data:
+  clickhouse-data:
+
+networks:
+  airflow_network:
+    driver: bridge

@@ -6,18 +6,18 @@ const ReportPage: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8081';
+    const authUrl = process.env.REACT_APP_AUTH_URL || 'http://localhost:8081';
+    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
     const keycloakUrl = process.env.REACT_APP_KEYCLOAK_URL || 'http://localhost:8080';
     const realm = process.env.REACT_APP_KEYCLOAK_REALM || 'reports-realm';
     const clientId = process.env.REACT_APP_KEYCLOAK_CLIENT_ID || 'reports-frontend';
 
-    // Базовый URL для Keycloak авторизации
     const keycloakAuthUrl = `${keycloakUrl}/realms/${realm}/protocol/openid-connect/auth`;
 
     useEffect(() => {
         const checkAuth = async () => {
             try {
-                const res = await fetch(`${backendUrl}/api/auth/status`, {
+                const res = await fetch(`${authUrl}/api/auth/status`, {
                     credentials: 'include',
                 });
 
@@ -38,14 +38,12 @@ const ReportPage: React.FC = () => {
     }, [backendUrl]);
 
     const loginWithKeycloak = () => {
-        // Старый способ логина — без изменений
-        window.location.href = `${backendUrl}/oauth2/authorization/bionicpro-auth`;
+        window.location.href = `${authUrl}/oauth2/authorization/bionicpro-auth`;
     };
 
     const loginWithYandex = () => {
-        // Вход через Яндекс ID (Identity Brokering)
         const redirectUri = encodeURIComponent(window.location.origin);
-        window.location.href = `${backendUrl}/oauth2/authorization/bionicpro-auth?kc_idp_hint=yandex`;
+        window.location.href = `${authUrl}/oauth2/authorization/bionicpro-auth?kc_idp_hint=yandex`;
     };
 
     const downloadReport = async () => {

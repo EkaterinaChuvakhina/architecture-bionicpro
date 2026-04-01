@@ -7,3 +7,6 @@ python-multipart
 pandas
 weasyprint
 jinja2
+boto3
+requests
+httpx

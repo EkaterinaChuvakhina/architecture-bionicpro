@@ -7,18 +7,13 @@ const ReportPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
 
     const authUrl = process.env.REACT_APP_AUTH_URL || 'http://localhost:8081';
-    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
-    const keycloakUrl = process.env.REACT_APP_KEYCLOAK_URL || 'http://localhost:8080';
-    const realm = process.env.REACT_APP_KEYCLOAK_REALM || 'reports-realm';
-    const clientId = process.env.REACT_APP_KEYCLOAK_CLIENT_ID || 'reports-frontend';
-
-    const keycloakAuthUrl = `${keycloakUrl}/realms/${realm}/protocol/openid-connect/auth`;
+    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8083';
 
     useEffect(() => {
         const checkAuth = async () => {
             try {
                 const res = await fetch(`${authUrl}/api/auth/status`, {
-                    credentials: 'include',
+                    credentials: 'include',   // обязательно!
                 });
 
                 if (!res.ok) {
@@ -35,14 +30,13 @@ const ReportPage: React.FC = () => {
         };
 
         checkAuth();
-    }, [backendUrl]);
+    }, [authUrl]);
 
     const loginWithKeycloak = () => {
         window.location.href = `${authUrl}/oauth2/authorization/bionicpro-auth`;
     };
 
     const loginWithYandex = () => {
-        const redirectUri = encodeURIComponent(window.location.origin);
         window.location.href = `${authUrl}/oauth2/authorization/bionicpro-auth?kc_idp_hint=yandex`;
     };
 
@@ -51,56 +45,60 @@ const ReportPage: React.FC = () => {
         setError(null);
 
         try {
-            const res = await fetch(`${backendUrl}/reports`, {
+            const res = await fetch(`${backendUrl}/reports/`, {
                 credentials: 'include',
             });
 
             if (!res.ok) {
                 if (res.status === 401 || res.status === 403) {
                     setAuthenticated(false);
-                    throw new Error('Сессия истекла. Пожалуйста, войдите заново.');
+                    throw new Error('Session expired. Please log in again.');
                 }
-                throw new Error('Не удалось скачать отчёт');
+                throw new Error('Failed to get report');
             }
 
-            const blob = await res.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'report.pdf';
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            window.URL.revokeObjectURL(url);
+            const data = await res.json();
+
+            if (data.download_url) {
+                const link = document.createElement('a');
+                link.href = data.download_url;
+                link.download = `bionicpro-report-${new Date().toISOString().slice(0, 10)}.pdf`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else {
+                throw new Error('No download link received');
+            }
+
         } catch (err: any) {
-            setError(err.message || 'Произошла ошибка');
+            setError(err.message || 'An error occurred');
         } finally {
             setLoading(false);
         }
     };
 
     if (checkingAuth) {
-        return <div>Загрузка...</div>;
+        return <div>Loading...</div>;
     }
 
     if (!authenticated) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
                 <div className="p-8 bg-white rounded-lg shadow-md text-center">
-                    <h2 className="text-2xl font-bold mb-6">Вход в систему</h2>
+                    <h2 className="text-2xl font-bold mb-6">Sign In</h2>
 
                     <button
                         onClick={loginWithKeycloak}
                         className="w-full px-6 py-3 mb-4 bg-blue-600 text-white rounded hover:bg-blue-700 text-lg font-medium"
                     >
-                        Login
+                        Login with Keycloak
                     </button>
 
                     <button
                         onClick={loginWithYandex}
                         className="w-full px-6 py-3 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-lg font-medium"
                     >
-                        Войти через Яндекс ID
+                        Login with Yandex ID
                     </button>
 
                     {error && (
@@ -125,7 +123,7 @@ const ReportPage: React.FC = () => {
                         loading ? 'opacity-50 cursor-not-allowed' : ''
                     }`}
                 >
-                    {loading ? 'Генерация отчёта...' : 'Скачать отчёт (PDF)'}
+                    {loading ? 'Generating Report...' : 'Download Report'}
                 </button>
 
                 {error && (

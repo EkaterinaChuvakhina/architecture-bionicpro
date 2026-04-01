@@ -43,6 +43,8 @@ services:
     ports:
       - "3000:3000"
     environment:
+      REACT_APP_BACKEND_URL: http://localhost:8083
+      REACT_APP_AUTH_URL: http://localhost:8083
       REACT_APP_API_URL: http://localhost:8000
       REACT_APP_KEYCLOAK_URL: http://localhost:8080
       REACT_APP_KEYCLOAK_REALM: reports-realm
@@ -87,6 +89,7 @@ services:
       - SPRING_PROFILES_ACTIVE=dev
     depends_on:
       - keycloak
+      - redis
     networks:
       - airflow_network
     restart: unless-stopped
@@ -153,11 +156,17 @@ services:
     ports:
       - "8000:8000"
     environment:
-      CLICKHOUSE_HOST: olap_db
       CLICKHOUSE_PORT: 8123
       CLICKHOUSE_USER: default
       CLICKHOUSE_PASSWORD: ""
       CLICKHOUSE_DATABASE: bionicpro
+      CLICKHOUSE_HOST: olap_db
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minio_user
+      MINIO_SECRET_KEY: minio_password
+      MINIO_BUCKET: bionicpro-reports
+      MINIO_SECURE: false
+      AUTH_SERVICE_URL: http://bionicpro-auth:8082
     depends_on:
       olap_db:
         condition: service_healthy
@@ -210,15 +219,75 @@ services:
     depends_on:
       airflow-init:
         condition: service_completed_successfully
+  minio:
+    image: minio/minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_storage:/data
+    environment:
+      MINIO_ROOT_USER: minio_user
+      MINIO_ROOT_PASSWORD: minio_password
+    command: server --console-address ":9001" /data
+    networks:
+      - airflow_network
+
+  nginx-cdn:
+    image: nginx:alpine
+    container_name: nginx-cdn
+    ports:
+      - "8083:8083"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - nginx-cache:/var/cache/nginx
+    depends_on:
+     - minio
+
+    networks:
+      - airflow_network
+    restart: unless-stopped
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: minio-init
+    depends_on:
+      - minio
+    networks:
+      - airflow_network
+    restart: "no"
+    entrypoint: >
+      /bin/sh -c "
+        echo 'Waiting for MinIO to be ready...' &&
+        until (/usr/bin/mc alias set local http://minio:9000 minio_user minio_password); do
+          echo '...waiting for MinIO...' && sleep 2;
+        done &&
+      
+        echo 'Creating bucket bionicpro-reports...' &&
+        /usr/bin/mc mb local/bionicpro-reports --ignore-existing &&
+      
+        echo 'MinIO initialization completed successfully!'
+      "
+  redis:
+    image: redis:7-alpine
+    container_name: redis-session
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - airflow_network
 
 volumes:
   postgres-keycloak-data:
   redis-data:
   ldap-data:
   ldap-config:
-  minio_storage:
+  minio_storage: {}
   airflow_postgres_data:
   clickhouse-data:
+  nginx-cache:
 
 networks:
   airflow_network:

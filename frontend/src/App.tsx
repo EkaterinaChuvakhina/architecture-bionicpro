@@ -6,19 +6,22 @@ const ReportPage: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const authUrl = process.env.REACT_APP_AUTH_URL || 'http://localhost:8081';
+    const authUrl = process.env.REACT_APP_AUTH_URL || 'http://localhost:8083';
     const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8083';
+
+    useEffect(() => {
+        console.log('🔥 REACT_APP_AUTH_URL =', process.env.REACT_APP_AUTH_URL);
+        console.log('🔥 REACT_APP_BACKEND_URL =', process.env.REACT_APP_BACKEND_URL);
+    }, []);
 
     useEffect(() => {
         const checkAuth = async () => {
             try {
                 const res = await fetch(`${authUrl}/api/auth/status`, {
-                    credentials: 'include',   // обязательно!
+                    credentials: 'include',
                 });
 
-                if (!res.ok) {
-                    throw new Error('Not authenticated');
-                }
+                if (!res.ok) throw new Error('Not authenticated');
 
                 const data = await res.json();
                 setAuthenticated(data.authenticated);
@@ -69,7 +72,6 @@ const ReportPage: React.FC = () => {
             } else {
                 throw new Error('No download link received');
             }
-
         } catch (err: any) {
             setError(err.message || 'An error occurred');
         } finally {
@@ -77,9 +79,7 @@ const ReportPage: React.FC = () => {
         }
     };
 
-    if (checkingAuth) {
-        return <div>Loading...</div>;
-    }
+    if (checkingAuth) return <div>Loading...</div>;
 
     if (!authenticated) {
         return (
@@ -101,11 +101,7 @@ const ReportPage: React.FC = () => {
                         Login with Yandex ID
                     </button>
 
-                    {error && (
-                        <div className="mt-4 p-4 bg-red-100 text-red-700 rounded">
-                            {error}
-                        </div>
-                    )}
+                    {error && <div className="mt-4 p-4 bg-red-100 text-red-700 rounded">{error}</div>}
                 </div>
             </div>
         );
@@ -126,11 +122,7 @@ const ReportPage: React.FC = () => {
                     {loading ? 'Generating Report...' : 'Download Report'}
                 </button>
 
-                {error && (
-                    <div className="mt-6 p-4 bg-red-100 text-red-700 rounded-lg">
-                        {error}
-                    </div>
-                )}
+                {error && <div className="mt-6 p-4 bg-red-100 text-red-700 rounded-lg">{error}</div>}
             </div>
         </div>
     );

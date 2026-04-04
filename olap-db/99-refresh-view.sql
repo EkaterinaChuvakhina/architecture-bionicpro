@@ -1,0 +1,1 @@
+SYSTEM REFRESH VIEW bionicpro.mv_to_user_prosthesis_report_cdc;

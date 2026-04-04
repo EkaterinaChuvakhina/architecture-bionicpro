@@ -154,6 +154,40 @@ services:
     networks:
       - airflow_network
 
+  clickhouse-init:
+    image: clickhouse/clickhouse-server:latest
+    platform: linux/arm64
+    container_name: clickhouse-init
+    depends_on:
+      olap_db:
+        condition: service_healthy
+    volumes:
+      - ./olap-db:/scripts:ro
+    command: >
+      bash -c '
+        echo "=== Ожидаем готовности ClickHouse ===" &&
+        until clickhouse-client --host olap_db --query "SELECT 1" > /dev/null 2>&1; do
+          echo "ClickHouse ещё не готов... ждём 2 секунды";
+          sleep 2;
+        done &&
+        echo "=== ClickHouse готов. Выполняем инициализацию ===" &&
+
+        for script in $(ls /scripts/*.sql | sort); do
+          if [ -f "$$script" ]; then
+            echo "→ Выполняем: $$(basename "$$script")";
+            clickhouse-client \
+              --host olap_db \
+              --multiquery \
+              --query "$$(cat "$$script")" || echo "⚠️ Ошибка в $$(basename "$$script")";
+          fi
+        done &&
+
+        echo "=== Инициализация ClickHouse завершена успешно ==="
+      '
+    restart: "no"
+    networks:
+      - airflow_network
+
   backend:
     build:
       context: ./report-backend

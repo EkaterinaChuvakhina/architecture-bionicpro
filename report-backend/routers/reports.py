@@ -38,7 +38,7 @@ async def get_my_report(current_user: dict = CurrentUser):
 
             query = """
                     SELECT *
-                    FROM bionicpro.user_prosthesis_report
+                    FROM bionicpro.user_prosthesis_report_cdc
                     WHERE email = %(email)s
                     ORDER BY updated_at DESC LIMIT 1 \
                     """

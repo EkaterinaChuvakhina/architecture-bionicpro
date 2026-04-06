@@ -25,7 +25,11 @@ async def get_my_report(current_user: dict = CurrentUser):
     start_time = time.time()
     logger.info(f"Запрос отчёта для email: {email}")
 
-    presigned_url = get_presigned_url(email)
+    try:
+        presigned_url = get_presigned_url(email)
+    except Exception as e:
+        logger.error(f"Неожиданная ошибка get_presigned_url: {e}")
+        presigned_url = None
 
     if presigned_url:
         duration = time.time() - start_time

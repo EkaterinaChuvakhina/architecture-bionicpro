@@ -45,7 +45,7 @@ services:
     environment:
      REACT_APP_API_URL: http://localhost:8083
      REACT_APP_BACKEND_URL: http://localhost:8083
-     REACT_APP_AUTH_URL: http://localhost:8082
+     REACT_APP_AUTH_URL: http://localhost:8083
      REACT_APP_KEYCLOAK_URL: http://localhost:8080
      REACT_APP_KEYCLOAK_REALM: reports-realm
      REACT_APP_KEYCLOAK_CLIENT_ID: reports-frontend
@@ -156,34 +156,13 @@ services:
 
   clickhouse-init:
     image: clickhouse/clickhouse-server:latest
-    platform: linux/arm64
     container_name: clickhouse-init
     depends_on:
       olap_db:
         condition: service_healthy
     volumes:
       - ./olap-db:/scripts:ro
-    command: >
-      bash -c '
-        echo "=== Ожидаем готовности ClickHouse ===" &&
-        until clickhouse-client --host olap_db --query "SELECT 1" > /dev/null 2>&1; do
-          echo "ClickHouse ещё не готов... ждём 2 секунды";
-          sleep 2;
-        done &&
-        echo "=== ClickHouse готов. Выполняем инициализацию ===" &&
-
-        for script in $(ls /scripts/*.sql | sort); do
-          if [ -f "$$script" ]; then
-            echo "→ Выполняем: $$(basename "$$script")";
-            clickhouse-client \
-              --host olap_db \
-              --multiquery \
-              --query "$$(cat "$$script")" || echo "⚠️ Ошибка в $$(basename "$$script")";
-          fi
-        done &&
-
-        echo "=== Инициализация ClickHouse завершена успешно ==="
-      '
+    command: /scripts/init-clickhouse.sh
     restart: "no"
     networks:
       - airflow_network

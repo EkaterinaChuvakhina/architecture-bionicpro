@@ -1,7 +1,6 @@
-# s3_client.py
 from datetime import datetime
 import boto3
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, EndpointConnectionError, BotoCoreError
 import os
 import logging
 
@@ -43,16 +42,12 @@ def upload_report_to_s3(pdf_bytes: bytes, email: str):
             }
         )
         logger.info(f"Отчёт успешно загружен в MinIO: {key}")
-    except ClientError as e:
+    except Exception as e:  # ← broadened
         logger.error(f"Ошибка загрузки в MinIO: {e}")
         raise
 
 
 def get_presigned_url(email: str, expires_in: int = 3600) -> str | None:
-    """
-    Возвращает presigned URL ТОЛЬКО если файл действительно существует в бакете.
-    Если файла нет — возвращает None (чтобы запустилась генерация).
-    """
     key = get_report_key(email)
 
     try:
@@ -77,9 +72,21 @@ def get_presigned_url(email: str, expires_in: int = 3600) -> str | None:
         return url
 
     except ClientError as e:
-        if e.response['Error']['Code'] == '404' or e.response['Error']['Code'] == 'NoSuchKey':
+        error_code = e.response.get('Error', {}).get('Code')
+        if error_code in ('404', 'NoSuchKey'):
             logger.info(f"Файл отсутствует в MinIO: {key} → будет сгенерирован")
             return None
         else:
-            logger.error(f"Ошибка при проверке файла в MinIO: {e}")
+            logger.warning(f"ClientError при проверке MinIO (код {error_code}): {e}")
             return None
+
+    except (EndpointConnectionError, BotoCoreError) as e:
+        logger.warning(
+            f"MinIO недоступен (EndpointConnectionError / BotoCoreError): {e}. "
+            f"Запускаем генерацию отчёта для {email}"
+        )
+        return None
+
+    except Exception as e:
+        logger.error(f"Неожиданная ошибка при работе с MinIO для {email}: {e}", exc_info=True)
+        return None

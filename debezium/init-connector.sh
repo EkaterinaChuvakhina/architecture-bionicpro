@@ -1,14 +1,3 @@
-#!/bin/sh
-set -e
-
-echo "=== Ждём запуска Debezium ==="
-until curl -s -f -X GET http://debezium:8083/connectors > /dev/null; do
-  echo "Debezium ещё не готов... ждём 2 секунды"
-  sleep 2
-done
-
-echo "=== Debezium готов ==="
-
 curl -X POST http://debezium:8083/connectors \
   -H "Content-Type: application/json" \
   -d '{
@@ -35,8 +24,8 @@ curl -X POST http://debezium:8083/connectors \
       "key.converter": "org.apache.kafka.connect.json.JsonConverter",
       "value.converter": "org.apache.kafka.connect.json.JsonConverter",
       "key.converter.schemas.enable": "false",
-      "value.converter.schemas.enable": "false"
+      "value.converter.schemas.enable": "false",
+      "decimal.handling.mode": "string",
+      "snapshot.mode": "always"
     }
-  }' || echo "Connector уже существует (нормально)"
-
-echo "=== Connector готов ==="
+  }'

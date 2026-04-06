@@ -13,4 +13,6 @@ CREATE TABLE bionicpro.customers_raw (
                                          phone String,
                                          __deleted Bool DEFAULT false,
                                          _inserted_at DateTime DEFAULT now()
-) ENGINE = Rep
+) ENGINE = ReplacingMergeTree(_inserted_at)
+ORDER BY id
+PARTITION BY toYYYYMM(_inserted_at);

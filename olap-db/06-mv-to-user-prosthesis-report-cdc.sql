@@ -3,7 +3,6 @@ USE bionicpro;
 DROP VIEW IF EXISTS  bionicpro.mv_to_user_prosthesis_report_cdc;
 
 CREATE MATERIALIZED VIEW bionicpro.mv_to_user_prosthesis_report_cdc
-REFRESH EVERY 5 MINUTE
 TO bionicpro.user_prosthesis_report_cdc
 AS
 SELECT
@@ -32,34 +31,17 @@ SELECT
     now()                                                     AS updated_at
 
 FROM bionicpro.customers_raw AS c
-    LEFT JOIN default.emg_sensor_data AS e
-ON c.id = e.user_id
-
+    LEFT JOIN default.emg_sensor_data AS e ON c.id = e.user_id
     LEFT JOIN (
-    SELECT
-    user_id,
-    prosthesis_type,
-    count(*) AS cnt_p
+    SELECT user_id, prosthesis_type, count(*) AS cnt_p
     FROM default.emg_sensor_data
     GROUP BY user_id, prosthesis_type
-    ) p
-    ON p.user_id = e.user_id
-    AND p.prosthesis_type = e.prosthesis_type
-
+    ) p ON p.user_id = e.user_id AND p.prosthesis_type = e.prosthesis_type
     LEFT JOIN (
-    SELECT
-    user_id,
-    muscle_group,
-    count(*) AS cnt_m
+    SELECT user_id, muscle_group, count(*) AS cnt_m
     FROM default.emg_sensor_data
     GROUP BY user_id, muscle_group
-    ) m
-    ON m.user_id = e.user_id
-    AND m.muscle_group = e.muscle_group
+    ) m ON m.user_id = e.user_id AND m.muscle_group = e.muscle_group
 
-WHERE c.__deleted = false
-  AND c.id IS NOT NULL
-
+WHERE c.__deleted = false AND c.id IS NOT NULL
 GROUP BY c.id;
-
-SELECT 'Refreshable MV mv_to_user_prosthesis_report_cdc успешно создана' AS status;

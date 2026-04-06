@@ -9,7 +9,7 @@ SELECT
     JSONExtractUInt(message, 'id') AS id,
     JSONExtractString(message, 'name') AS name,
     JSONExtractString(message, 'email') AS email,
-    toUInt8OrNull(base64Decode(JSONExtractString(message, 'age', 'value'))) AS age,
+    toUInt8OrNull(JSONExtractString(message, 'age')) AS age,
     JSONExtractString(message, 'gender') AS gender,
     JSONExtractString(message, 'country') AS country,
     JSONExtractString(message, 'address') AS address,

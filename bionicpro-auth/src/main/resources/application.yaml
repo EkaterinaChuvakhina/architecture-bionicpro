@@ -1,0 +1,51 @@
+server:
+  port: 8082
+  servlet:
+    session:
+      timeout: 1800s
+      cookie:
+        name: JSESSIONID
+        http-only: true
+        secure: false
+        same-site: lax
+
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          bionicpro-auth:
+            provider: bionicpro-auth
+            client-id: reports-frontend
+            scope: openid,profile,email
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+        provider:
+          bionicpro-auth:
+              authorization-uri: ${KEYCLOAK_EXTERNAL_URL}/realms/reports-realm/protocol/openid-connect/auth
+              token-uri: ${KEYCLOAK_INTERNAL_URL}/realms/reports-realm/protocol/openid-connect/token
+              user-info-uri: ${KEYCLOAK_INTERNAL_URL}/realms/reports-realm/protocol/openid-connect/userinfo
+              jwk-set-uri: ${KEYCLOAK_INTERNAL_URL}/realms/reports-realm/protocol/openid-connect/certs
+              user-name-attribute: preferred_username
+
+  main:
+    banner-mode: off
+  data:
+    redis:
+      host: redis
+      port: 6379
+  session:
+    store-type: redis
+    redis:
+      namespace: spring:session:bionicpro
+    timeout: 30m
+app:
+  frontend-url: ${FRONTEND_URL:http://localhost:3000}
+
+reports:
+  api:
+    url: ${REPORTS_API_URL:http://localhost:8082}/reports
+logging:
+  level:
+    org.springframework.security: DEBUG
+    org.springframework.web: INFO

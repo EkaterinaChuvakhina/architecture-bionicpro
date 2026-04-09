@@ -12,3 +12,5 @@ ORDER BY (user_id, prosthesis_type, signal_time);
 INSERT INTO emg_sensor_data
 SELECT *
 FROM file('olap.csv', 'CSV');
+
+CREATE DATABASE IF NOT EXISTS bionicpro;

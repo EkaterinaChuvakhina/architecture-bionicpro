@@ -6,7 +6,7 @@ server:
       cookie:
         name: JSESSIONID
         http-only: true
-        secure: false
+        secure: true
         same-site: lax
 
 spring:
